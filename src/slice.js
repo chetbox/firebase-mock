@@ -8,30 +8,19 @@ function Slice (queue, snap) {
   var data = snap? snap.val() : queue.ref.getData();
   this.ref = snap? snap.ref : queue.ref;
   this.priority = snap? snap.getPriority() : this.ref.priority;
-  this.pris = {};
   this.data = {};
-  this.map = {};
   this.outerMap = {};
   this.keys = [];
   this.props = this._makeProps(queue._q, this.ref, this.ref.getKeys().length);
   this._build(this.ref, data);
 }
 
-Slice.prototype.prev = function (key) {
-  var pos = this.pos(key);
-  if( pos === 0 ) { return null; }
-  else {
-    if( pos < 0 ) { pos = this.keys.length; }
-    return this.keys[pos-1];
-  }
-};
-
 Slice.prototype.equals = function (slice) {
-  return _.isEqual(this.keys, slice.keys) && _.isEqual(this.data, slice.data);
+  return _.isEqual(this.data, slice.data);
 };
 
 Slice.prototype.pos = function (key) {
-  return this.has(key) ? this.map[key] : -1;
+  return Object.keys(this.data).indexOf(this.key);
 };
 
 Slice.prototype.insertPos = function (prevChild) {
@@ -43,7 +32,7 @@ Slice.prototype.insertPos = function (prevChild) {
 };
 
 Slice.prototype.has = function (key) {
-  return this.map.hasOwnProperty(key);
+  return !!this.data[key];
 };
 
 Slice.prototype.snap = function (key) {
@@ -60,10 +49,6 @@ Slice.prototype.snap = function (key) {
 
 Slice.prototype.get = function (key) {
   return this.has(key)? this.data[key] : null;
-};
-
-Slice.prototype.pri = function (key) {
-  return this.has(key)? this.pris[key] : null;
 };
 
 Slice.prototype.changeMap = function (slice) {
@@ -185,15 +170,13 @@ Slice.prototype._makeProps = function (queueProps, ref, numRecords) {
 };
 
 Slice.prototype._build = function(ref, rawData) {
-  var i = 0, map = this.map, keys = this.keys, outer = this.outerMap;
-  var props = this.props, slicedData = this.data;
+  var i = 0;
   _.each(rawData, _.bind(function(v,k) {
-    outer[k] = i < props.min? props.min - i : i - Math.max(props.min,0);
-    if( this._inRange(props, k, ref.child(k).priority, i++) ) {
-      map[k] = keys.length;
-      keys.push(k);
-      slicedData[k] = v;
+    this.outerMap[k] = i < this.props.min? this.props.min - i : i - Math.max(this.props.min,0);
+    if( this._inRange(this.props, k, ref.child(k).priority, i) ) {
+      this.data[k] = v;
     }
+    i++;
   }, this));
 };
 
