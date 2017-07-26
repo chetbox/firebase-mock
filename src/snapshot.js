@@ -29,9 +29,9 @@ MockDataSnapshot.prototype.exists = function () {
 };
 
 MockDataSnapshot.prototype.forEach = function (callback, context) {
-  _.each(this.val(), function (value, key) {
+  _.each(this.val(), _.bind(function (value, key) {
     callback.call(context, this.child(key));
-  }, this);
+  }, this));
 };
 
 MockDataSnapshot.prototype.hasChild = function (path) {
@@ -68,10 +68,10 @@ MockDataSnapshot.prototype.exportVal = function () {
     }
   }
   else {
-    _.reduce(this.val(), function (acc, value, key) {
+    _.reduce(this.val(), _.bind(function (acc, value, key) {
       acc[key] = this.child(key).exportVal();
       return acc;
-    }, exportData, this);
+    }, this), exportData);
   }
   return exportData;
 };

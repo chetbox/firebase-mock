@@ -478,12 +478,12 @@ MockFirebase.prototype._resort = function (childKeyMoved) {
   this.sortedDataKeys.sort(_.bind(this.childComparator, this));
   // resort the data object to match our keys so value events return ordered content
   var oldData = _.assign({}, this.data);
-  _.each(oldData, function (v, k) {
+  _.each(oldData, _.bind(function (v, k) {
     delete this.data[k];
-  }, this);
-  _.each(this.sortedDataKeys, function (k) {
+  }, this));
+  _.each(this.sortedDataKeys, _.bind(function (k) {
     this.data[k] = oldData[k];
-  }, this);
+  }, this));
   if (!_.isUndefined(childKeyMoved) && _.has(this.data, childKeyMoved)) {
     this._trigger('child_moved', this.data[childKeyMoved], this._getPri(childKeyMoved), childKeyMoved);
   }
@@ -521,15 +521,15 @@ MockFirebase.prototype._defer = function (sourceMethod, sourceArgs, callback) {
 MockFirebase.prototype._trigger = function (event, data, pri, key) {
   var ref = event === 'value' ? this : this.child(key);
   var snap = new Snapshot(ref, data, pri);
-  _.each(this._events[event], function (parts) {
+  _.each(this._events[event], _.bind(function (parts) {
     var fn = parts[0], context = parts[1];
-    if (_.contains(['child_added', 'child_moved'], event)) {
+    if (_.includes(['child_added', 'child_moved'], event)) {
       fn.call(context, snap, this._getPrevChild(key));
     }
     else {
       fn.call(context, snap);
     }
-  }, this);
+  }, this));
 };
 
 MockFirebase.prototype._triggerAll = function (events) {

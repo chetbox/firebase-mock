@@ -73,11 +73,11 @@ Slice.prototype.changeMap = function (slice) {
       changes.removed.push(k);
     }
   });
-  _.each(slice.data, function(v,k) {
+  _.each(slice.data, _.bind(function(v,k) {
     if( !this.has(k) ) {
       changes.added.push(k);
     }
-  }, this);
+  }, this));
   return changes;
 };
 
@@ -187,14 +187,14 @@ Slice.prototype._makeProps = function (queueProps, ref, numRecords) {
 Slice.prototype._build = function(ref, rawData) {
   var i = 0, map = this.map, keys = this.keys, outer = this.outerMap;
   var props = this.props, slicedData = this.data;
-  _.each(rawData, function(v,k) {
+  _.each(rawData, _.bind(function(v,k) {
     outer[k] = i < props.min? props.min - i : i - Math.max(props.min,0);
     if( this._inRange(props, k, ref.child(k).priority, i++) ) {
       map[k] = keys.length;
       keys.push(k);
       slicedData[k] = v;
     }
-  }, this);
+  }, this));
 };
 
 module.exports = Slice;
