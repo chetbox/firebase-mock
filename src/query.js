@@ -9,7 +9,7 @@ var rsvp     = require('rsvp');
 function MockQuery (ref) {
   this.ref = ref;
   this._events = [];
-  // startPri, endPri, startKey, endKey, and limit
+  // startValue, endValue, startKey, endKey, orderBy, orderByChild and limit
   this._q = {};
 }
 
@@ -157,29 +157,52 @@ MockQuery.prototype.limitToLast = function (intVal) {
   return q;
 };
 
-MockQuery.prototype.equalTo = function () {
+MockQuery.prototype.orderByChild = function (childKey) {
+  utils.assertKey('Query.orderByChild', childKey, 'childKey');
   var q = new MockQuery(this.ref);
-  _.extend(q._q, this._q);
+  _.extend(q._q, this._q, {orderBy: 'child', orderByChild: childKey});
   return q;
 };
 
-MockQuery.prototype.startAt = function (priority, key) {
-  assertQuery('Query.startAt', priority, key);
+MockQuery.prototype.orderByKey = function () {
   var q = new MockQuery(this.ref);
-  _.extend(q._q, this._q, {startKey: key, startPri: priority});
+  _.extend(q._q, this._q, {orderBy: 'key'});
   return q;
 };
 
-MockQuery.prototype.endAt = function (priority, key) {
-  assertQuery('Query.endAt', priority, key);
+MockQuery.prototype.orderByPriority = function () {
   var q = new MockQuery(this.ref);
-  _.extend(q._q, this._q, {endKey: key, endPri: priority});
+  _.extend(q._q, this._q, {orderBy: 'priority'});
   return q;
 };
 
-function assertQuery (method, pri, key) {
-  if (pri !== null && typeof(pri) !== 'string' && typeof(pri) !== 'number') {
-    throw new Error(method + ' failed: first argument must be a valid firebase priority (a string, number, or null).');
+MockQuery.prototype.orderByValue = function () {
+  var q = new MockQuery(this.ref);
+  _.extend(q._q, this._q, {orderBy: 'value'});
+  return q;
+};
+
+MockQuery.prototype.equalTo = function (value, key) {
+  return this.startAt(value, key).endAt(value, key);
+};
+
+MockQuery.prototype.startAt = function (value, key) {
+  assertQuery('Query.startAt', value, key);
+  var q = new MockQuery(this.ref);
+  _.extend(q._q, this._q, {startKey: key, startValue: value});
+  return q;
+};
+
+MockQuery.prototype.endAt = function (value, key) {
+  assertQuery('Query.endAt', value, key);
+  var q = new MockQuery(this.ref);
+  _.extend(q._q, this._q, {endKey: key, endValue: value});
+  return q;
+};
+
+function assertQuery (method, value, key) {
+  if (value !== null && typeof(value) !== 'string' && typeof(value) !== 'number') {
+    throw new Error(method + ' failed: first argument must be a valid firebase value (a string, number, or null).');
   }
   if (!_.isUndefined(key)) {
     utils.assertKey(method, key, 'second');

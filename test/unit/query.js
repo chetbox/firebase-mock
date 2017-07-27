@@ -16,6 +16,20 @@ describe('MockQuery', function () {
     query = new Query(ref);
   });
 
+  function assertChildrenWithKeys(query, keys) {
+    var spy = sinon.spy();
+    query.on('child_added', spy);
+    query.flush();
+
+    expect(spy).callCount(keys.length);
+
+    expect(
+      spy.getCalls().map(function(call) { return call.args[0].key; }),
+      'child_added called with keys'
+    )
+    .to.eql(keys);
+  }
+
   describe('#ref', function() {
 
     it('returns the ref used to create the query', function() {
@@ -95,16 +109,16 @@ describe('MockQuery', function () {
         var spy = sinon.spy(function(snap) {
           expect(snap.val()).equals(null);
         });
-        ref.limitToLast(2).startAt('foo').endAt('foo').on('value', spy);
+        ref.startAt('foo').endAt('foo').on('value', spy);
         ref.flush();
         expect(spy.called).to.equal(true);
       });
 
       it('should return correct keys', function() {
         var spy = sinon.spy(function(snap) {
-          expect(_.keys(snap.val())).eql(['num_3', 'char_a_1', 'char_a_2']);
+          expect(_.keys(snap.val())).eql(['char_a_1', 'char_a_2', 'char_b']);
         });
-        ref.startAt(3).endAt('a').on('value', spy);
+        ref.startAt('char_a_1').endAt('char_b').on('value', spy);
         ref.flush();
         expect(spy.called).to.equal(true);
       });
@@ -126,7 +140,7 @@ describe('MockQuery', function () {
         expect(spy).callCount(1);
         ref.child('num_3').set('apple');
         ref.flush();
-        expect(spy).callCount(1);
+        expect(spy).callCount(2);
       });
 
       it('can take the context as the 3rd argument', function () {
@@ -201,22 +215,18 @@ describe('MockQuery', function () {
         ref.child('fruit').once('value', function(list_snapshot) {
           list_snapshot.forEach(function(snapshot){
             model[snapshot.key] = snapshot.val();
-            snapshot.ref.on('value', function(snapshot) {
+            snapshot.ref.once('value', function(snapshot) {
               model[snapshot.key] = snapshot.val();
             });
             last_key = snapshot.key;
           });
 
-          ref.child('fruit').startAt(null, last_key).on('child_added', function(snapshot) {
-            if(model[snapshot.key] === undefined)
-            {
-              model[snapshot.key] = snapshot.val();
-              snapshot.ref.on('value', function(snapshot) {
-                model[snapshot.key] = snapshot.val();
-              });
-            }
-          }, undefined, this);
-        }, undefined, this);
+          var lastChild = ref.child('fruit').startAt(last_key);
+          lastChild.on('child_added', function(snapshot) {
+            model[snapshot.key] = snapshot.val();
+            lastChild.off(this);
+          }, undefined);
+        }, undefined);
 
         var third_ref = ref.child('fruit').push(third_value);
 
@@ -262,7 +272,7 @@ describe('MockQuery', function () {
       query.flush();
 
       expect(spy).callCount(2);
-      _.each(['null_a', 'null_b'], function(k, i) {
+      _.each(['char_a_1', 'char_a_2'], function(k, i) {
         expect(spy.getCall(i).args[0].key).equals(k);
       });
     });
@@ -275,24 +285,29 @@ describe('MockQuery', function () {
       expect(spy).callCount(0);
     });
 
-    it('should be relevant to endAt()'); //todo not implemented
+    it('is not affected by endAt()', function() {
+      assertChildrenWithKeys(
+        ref.limitToFirst(2).endAt('null_a'),
+        ['char_a_1', 'char_a_2']
+      );
+    });
 
-    it('should be relevant to startAt()'); //todo not implemented
+    it('should be relevant to startAt()', function() {
+      assertChildrenWithKeys(
+        ref.limitToFirst(2).startAt('null_b'),
+        ['null_b', 'null_c']
+      );
+    });
   });
 
   describe('limitToLast', function() {
     it('should throw Error if non-integer argument');
 
     it('should return correct number of results', function() {
-      var spy = sinon.spy();
-      var query = ref.limitToLast(2);
-      query.on('child_added', spy);
-      query.flush();
-
-      expect(spy).callCount(2);
-      _.each(['char_b', 'char_c'], function(k, i) {
-        expect(spy.getCall(i).args[0].key).equals(k);
-      });
+      assertChildrenWithKeys(
+        ref.limitToLast(2),
+        ['num_2', 'num_3']
+      );
     });
 
     it('should work if does not match any results', function() {
@@ -303,28 +318,101 @@ describe('MockQuery', function () {
       expect(spy).callCount(0);
     });
 
-    it('should be relevant to endAt()'); //todo not implemented
+    it('should be relevant to endAt()', function() {
+      assertChildrenWithKeys(
+        ref.limitToLast(2).endAt('null_c'),
+        ['null_b', 'null_c']
+      );
+    });
 
-    it('should be relevant to startAt()'); //todo not implemented
+    it('is not affected by startAt()', function() {
+      assertChildrenWithKeys(
+        ref.limitToLast(2).startAt('char_a_1'),
+        ['num_2', 'num_3']
+      );
+    });
   });
 
-  describe('endAt', function() {
-    it('should make limit relative to the end of data');
+  describe('orderByKey', function() {
 
-    it('should stop at the priority given');
+    it('should order items by key value', function() {
+      assertChildrenWithKeys(
+        ref.orderByKey(),
+        ['char_a_1', 'char_a_2', 'char_b', 'char_c', 'null_a', 'null_b', 'null_c', 'num_1_a', 'num_1_b', 'num_2', 'num_3']
+      );
+    });
 
-    it('should stop at the key given');
+    describe('startAt', function() {
 
-    it('should stop at the key+priority given');
+      it('should filter from beginning', function() {
+        assertChildrenWithKeys(
+          ref.orderByKey().startAt('num_1_b'),
+          ['num_1_b', 'num_2', 'num_3']
+        );
+      });
+
+      it('should combine with limitToFirst', function() {
+        assertChildrenWithKeys(
+          ref.orderByKey().startAt('num_1_b').limitToFirst(2),
+          ['num_1_b', 'num_2']
+        );
+      });
+
+      it('should combine with limitToLast', function() {
+        assertChildrenWithKeys(
+          ref.orderByKey().startAt('num_1_b').limitToLast(2),
+          ['num_2', 'num_3']
+        );
+      });
+
+    });
+
+    describe('endAt', function() {
+
+      it('should filter from end', function() {
+        assertChildrenWithKeys(
+          ref.orderByKey().endAt('char_b'),
+          ['char_a_1', 'char_a_2', 'char_b']
+        );
+      });
+
+      it('should combine with limitToFirst', function() {
+        assertChildrenWithKeys(
+          ref.orderByKey().endAt('char_b').limitToFirst(2),
+          ['char_a_1', 'char_a_2']
+        );
+      });
+
+      it('should combine with limitToLast', function() {
+        assertChildrenWithKeys(
+          ref.orderByKey().endAt('char_b').limitToLast(2),
+          ['char_a_2', 'char_b']
+        );
+      });
+
+    });
+
+    it('should filter by equalTo', function() {
+      assertChildrenWithKeys(
+        ref.orderByKey().equalTo('char_c'),
+        ['char_c']
+      );
+    });
+
+    it('should filter by limitToFirst', function() {
+      assertChildrenWithKeys(
+        ref.orderByKey().limitToFirst(2),
+        ['char_a_1', 'char_a_2']
+      );
+    });
+
+    it('should filter by limitToLast', function() {
+      assertChildrenWithKeys(
+        ref.orderByKey().limitToLast(2),
+        ['num_2', 'num_3']
+      );
+    });
+
   });
 
-  describe('startAt', function() {
-    it('should make limit relative to start of data');
-
-    it('should start at the priority given');
-
-    it('should start at the key given');
-
-    it('should start at the key+priority given');
-  });
 });

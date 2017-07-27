@@ -8,11 +8,9 @@ function Slice (queue, snap) {
   var data = snap? snap.val() : queue.ref.getData();
   this.ref = snap? snap.ref : queue.ref;
   this.priority = snap? snap.getPriority() : this.ref.priority;
-  this.data = {};
   this.outerMap = {};
   this.keys = [];
-  this.props = this._makeProps(queue._q, this.ref, this.ref.getKeys().length);
-  this._build(this.ref, data);
+  this.data = this._build(this.ref, data, queue._q);
 }
 
 Slice.prototype.equals = function (slice) {
@@ -66,118 +64,31 @@ Slice.prototype.changeMap = function (slice) {
   return changes;
 };
 
-Slice.prototype._inRange = function (props, key, pri, pos) {
-  if( pos === -1 ) { return false; }
-  if( !_.isUndefined(props.startPri) && utils.priorityComparator(pri, props.startPri) < 0 ) {
-    return false;
-  }
-  if( !_.isUndefined(props.startKey) && utils.priorityComparator(key, props.startKey) < 0 ) {
-    return false;
-  }
-  if( !_.isUndefined(props.endPri) && utils.priorityComparator(pri, props.endPri) > 0 ) {
-    return false;
-  }
-  if( !_.isUndefined(props.endKey) && utils.priorityComparator(key, props.endKey) > 0 ) {
-    return false;
-  }
-  if( props.max > -1 && pos > props.max ) {
-    return false;
-  }
-  return pos >= props.min;
-};
-
-Slice.prototype._findPos = function (pri, key, ref, isStartBoundary) {
-  var keys = ref.getKeys(), firstMatch = -1, lastMatch = -1;
-  var len = keys.length, i, x, k;
-  if(_.isUndefined(pri) && _.isUndefined(key)) {
-    return -1;
-  }
-  for(i = 0; i < len; i++) {
-    k = keys[i];
-    x = utils.priAndKeyComparator(pri, key, ref.child(k).priority, k);
-    if( x === 0 ) {
-      // if the key is undefined, we may have several matching comparisons
-      // so we will record both the first and last successful match
-      if (firstMatch === -1) {
-        firstMatch = i;
-      }
-      lastMatch = i;
-    }
-    else if( x < 0 ) {
-      // we found the breakpoint where our keys exceed the match params
-      if( i === 0 ) {
-        // if this is 0 then our match point is before the data starts, we
-        // will use len here because -1 already has a special meaning (no limit)
-        // and len ensures we won't get any data (no matches)
-        i = len;
-      }
-      break;
-    }
+Slice.prototype._build = function(ref, rawData, q) {
+  if (rawData === null) {
+    return {};
   }
 
-  if( firstMatch !== -1 ) {
-    // we found a match, life is simple
-    return isStartBoundary? firstMatch : lastMatch;
+  var numItems = Object.keys(rawData).length;
+  function sortFn(orderBy) {
+    return orderBy === 'key' ? function(keyVal) { return keyVal[0]; } : _.identity;
   }
-  else if( i < len ) {
-    // if we're looking for the start boundary then it's the first record after
-    // the breakpoint. If we're looking for the end boundary, it's the last record before it
-    return isStartBoundary? i : i -1;
+  function includeBetween(orderBy, start, end) {
+    return function(keyVal) {
+      var sortVal = keyVal[0];
+      return (start === undefined || sortVal.localeCompare(start) !== -1) &&
+        (end === undefined || sortVal.localeCompare(end) !== 1);
+    };
   }
-  else {
-    // we didn't find one, so use len (i.e. after the data, no results)
-    return len;
-  }
-};
 
-Slice.prototype._makeProps = function (queueProps, ref, numRecords) {
-  var out = {};
-  _.each(queueProps, function(v,k) {
-    if(!_.isUndefined(v)) {
-      out[k] = v;
-    }
-  });
-  out.min = this._findPos(out.startPri, out.startKey, ref, true);
-  out.max = this._findPos(out.endPri, out.endKey, ref);
-  if( !_.isUndefined(queueProps.limit) ) {
-    if (queueProps.limitorder !== 'first') {
-      // limitToLast
-      if( out.min > -1 ) {
-        out.max = out.min + queueProps.limit;
-      }
-      else if( out.max > -1 ) {
-        out.min = out.max - queueProps.limit;
-      }
-      else if( queueProps.limit < numRecords ) {
-        out.max = numRecords-1;
-        out.min = Math.max(0, numRecords - queueProps.limit);
-      }
-    } else {
-      // limitToFirst
-      if( out.min > -1 ) {
-        out.max = out.min + queueProps.limit;
-      }
-      else if( out.max > -1 ) {
-        out.min = out.max - queueProps.limit;
-      }
-      else if( queueProps.limit < numRecords ) {
-        out.min = 0;
-        out.max = queueProps.limit - 1;
-      }
-    }
-  }
-  return out;
-};
-
-Slice.prototype._build = function(ref, rawData) {
-  var i = 0;
-  _.each(rawData, _.bind(function(v,k) {
-    this.outerMap[k] = i < this.props.min? this.props.min - i : i - Math.max(this.props.min,0);
-    if( this._inRange(this.props, k, ref.child(k).priority, i) ) {
-      this.data[k] = v;
-    }
-    i++;
-  }, this));
+  return _(rawData)
+  .toPairs()
+  .sortBy(sortFn(q.orderBy))
+  .filter(includeBetween(q.orderBy, q.startValue, q.endValue))
+  .take(q.limitorder === 'first' ? q.limit : numItems)
+  .takeRight(q.limitorder === 'last' ? q.limit : numItems)
+  .fromPairs()
+  .value();
 };
 
 module.exports = Slice;

@@ -364,32 +364,20 @@ MockFirebase.prototype.limitToLast = function (limit) {
   return new Query(this).limitToLast(limit);
 };
 
-/**
- * Just a stub so it can be spied on during testing
- */
-MockFirebase.prototype.orderByChild = function (child) {
-  return new Query(this);
+MockFirebase.prototype.orderByChild = function (childKey) {
+  return new Query(this).orderByChild(childKey);
 };
 
-/**
- * Just a stub so it can be spied on during testing
- */
-MockFirebase.prototype.orderByKey = function (key) {
-  return new Query(this);
+MockFirebase.prototype.orderByKey = function () {
+  return new Query(this).orderByKey();
 };
 
-/**
- * Just a stub so it can be spied on during testing
- */
-MockFirebase.prototype.orderByPriority = function (property) {
-  return new Query(this);
+MockFirebase.prototype.orderByPriority = function () {
+  return new Query(this).orderByPriority();
 };
 
-/**
- * Just a stub so it can be spied on during testing
- */
-MockFirebase.prototype.orderByValue = function (value) {
-  return new Query(this);
+MockFirebase.prototype.orderByValue = function () {
+  return new Query(this).orderByValue();
 };
 
 MockFirebase.prototype.startAt = function (priority, key) {
