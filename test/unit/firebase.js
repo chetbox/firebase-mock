@@ -349,6 +349,7 @@ describe('MockFirebase', function () {
 
     it('should fire child_added events with correct prevChildName', function () {
       ref = new Firebase('Empty://', null).autoFlush();
+      ref.on('child_added', spy);
       ref.set({
         alpha: {
           '.priority': 200,
@@ -363,9 +364,8 @@ describe('MockFirebase', function () {
           foo: 'charlie'
         }
       });
-      ref.on('child_added', spy);
       expect(spy.callCount).to.equal(3);
-      [null, 'charlie', 'alpha'].forEach(function (previous, index) {
+      [null, 'alpha', 'bravo'].forEach(function (previous, index) {
         expect(spy.getCall(index).args[1]).to.equal(previous);
       });
     });
@@ -425,6 +425,7 @@ describe('MockFirebase', function () {
   describe('#setPriority', function () {
 
     it('should trigger child_moved with correct prevChildName', function () {
+      // orderByPriority unsupported
       var keys = ref.getKeys();
       ref.on('child_moved', spy);
       ref.child(keys[0]).setPriority(250);

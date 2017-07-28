@@ -10,7 +10,10 @@ function Slice (queue, snap) {
   this.priority = snap? snap.getPriority() : this.ref.priority;
   this.outerMap = {};
   this.keys = [];
-  this.data = this._build(this.ref, data, queue._q);
+
+  var dataKeyValuePairs = this._buildKeyValuePairs(this.ref, data, queue._q);
+  this.data = _.fromPairs(dataKeyValuePairs);
+  this.sortedKeys = _.map(dataKeyValuePairs, function(keyVal) { return keyVal[0]; });
 }
 
 Slice.prototype.equals = function (slice) {
@@ -64,7 +67,7 @@ Slice.prototype.changeMap = function (slice) {
   return changes;
 };
 
-Slice.prototype._build = function(ref, rawData, q) {
+Slice.prototype._buildKeyValuePairs = function(ref, rawData, q) {
   if (rawData === null) {
     return {};
   }
@@ -87,8 +90,8 @@ Slice.prototype._build = function(ref, rawData, q) {
   .filter(includeBetween(q.orderBy, q.startValue, q.endValue))
   .take(q.limitorder === 'first' ? q.limit : numItems)
   .takeRight(q.limitorder === 'last' ? q.limit : numItems)
-  .fromPairs()
   .value();
 };
+
 
 module.exports = Slice;

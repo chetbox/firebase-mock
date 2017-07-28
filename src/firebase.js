@@ -463,7 +463,7 @@ MockFirebase.prototype._getPri = function (key) {
 };
 
 MockFirebase.prototype._resort = function (childKeyMoved) {
-  this.sortedDataKeys.sort(_.bind(this.childComparator, this));
+  this.sortedDataKeys = new Query(this).slice().sortedKeys;
   // resort the data object to match our keys so value events return ordered content
   var oldData = _.assign({}, this.data);
   _.each(oldData, _.bind(function (v, k) {
@@ -596,15 +596,8 @@ MockFirebase.prototype._childData = function (key) {
 };
 
 MockFirebase.prototype._getPrevChild = function (key) {
-//      this._resort();
-  var keys = this.sortedDataKeys;
+  var keys = new Query(this).slice().sortedKeys;
   var i = _.indexOf(keys, key);
-  if (i === -1) {
-    keys = keys.slice();
-    keys.push(key);
-    keys.sort(_.bind(this.childComparator, this));
-    i = _.indexOf(keys, key);
-  }
   return i === 0 ? null : keys[i - 1];
 };
 
@@ -634,18 +627,6 @@ MockFirebase.prototype._on = function (deferName, event, callback, cancel, conte
       }
     });
   }
-};
-
-MockFirebase.prototype.childComparator = function (a, b) {
-  var aPri = this._getPri(a);
-  var bPri = this._getPri(b);
-  var x = utils.priorityComparator(aPri, bPri);
-  if (x === 0) {
-    if (a !== b) {
-      x = a < b ? -1 : 1;
-    }
-  }
-  return x;
 };
 
 function extractName(path) {
