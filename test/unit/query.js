@@ -19,6 +19,7 @@ describe('MockQuery', function () {
   function assertChildrenWithKeys(query, keys) {
     var spy = sinon.spy();
     query.on('child_added', spy);
+    query.on('child_added', function(snap) { console.log('child_added', snap.key); });
     query.flush();
 
     expect(spy).callCount(keys.length);
