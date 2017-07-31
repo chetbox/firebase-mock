@@ -20,6 +20,7 @@ function MockFirebase(path, data, parent, name) {
   this.key = this.myName;
   this.flushDelay = parent ? parent.flushDelay : false;
   this.queue = parent ? parent.queue : new Queue();
+  this._childPriorities = {};
   this._events = {
     value: [],
     child_added: [],
@@ -109,6 +110,10 @@ MockFirebase.prototype.forceCancel = function (error, event, callback, context) 
 
 MockFirebase.prototype.getData = function () {
   return _.cloneDeep(this.data);
+};
+
+MockFirebase.prototype.getChildPriorities = function () {
+  return _.clone(this._childPriorities);
 };
 
 MockFirebase.prototype.getKeys = function () {
@@ -477,13 +482,6 @@ MockFirebase.prototype._resort = function (childKeyMoved) {
   }
 };
 
-MockFirebase.prototype._addKey = function (newKey) {
-  if (_.indexOf(this.sortedDataKeys, newKey) === -1) {
-    this.sortedDataKeys.push(newKey);
-    this._resort();
-  }
-};
-
 MockFirebase.prototype._dropKey = function (key) {
   var i = _.indexOf(this.sortedDataKeys, key);
   if (i > -1) {
@@ -545,8 +543,11 @@ MockFirebase.prototype._addChild = function (key, data, events) {
   if (!_.isObject(this.data)) {
     this.data = {};
   }
-  this._addKey(key);
   this.data[key] = utils.cleanData(data);
+  var pri = utils.getMeta(data, 'priority', undefined);
+  if (pri !== undefined) {
+    this._childPriorities[key] = pri;
+  }
   var child = this.child(key);
   child._dataChanged(data);
   if (events) events.push(['child_added', child.getData(), child.priority, key]);
@@ -557,6 +558,7 @@ MockFirebase.prototype._removeChild = function (key, events) {
     this._dropKey(key);
     var data = this.data[key];
     delete this.data[key];
+    delete this._childPriorities[key];
     if (_.isEmpty(this.data)) {
       this.data = null;
     }
@@ -571,6 +573,12 @@ MockFirebase.prototype._updateChild = function (key, data, events) {
   var cdata = utils.cleanData(data);
   if (_.isObject(this.data) && _.has(this.data, key) && !_.isEqual(this.data[key], cdata)) {
     this.data[key] = cdata;
+    var pri = utils.getMeta(cdata, 'priority', this._childPriorities[key]);
+    if (pri !== undefined) {
+      this._childPriorities[key] = pri;
+    } else {
+      delete this._childPriorities[key];
+    }
     var c = this.child(key);
     c._dataChanged(data);
     if (events) events.push(['child_changed', c.getData(), c.priority, key]);

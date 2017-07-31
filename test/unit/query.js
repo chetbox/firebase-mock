@@ -22,10 +22,9 @@ describe('MockQuery', function () {
     query.flush();
 
     expect(spy).callCount(keys.length);
-
     expect(
       spy.getCalls().map(function(call) { return call.args[0].key; }),
-      'child_added called with keys'
+      'child_added called with keys in order'
     )
     .to.eql(keys);
   }
@@ -410,6 +409,17 @@ describe('MockQuery', function () {
       assertChildrenWithKeys(
         ref.orderByKey().limitToLast(2),
         ['num_2', 'num_3']
+      );
+    });
+
+  });
+
+  describe('orderByPriority', function() {
+
+    it('should order items by priority', function() {
+      assertChildrenWithKeys(
+        ref.orderByPriority(),
+        ['null_a', 'null_b', 'null_c', 'num_1_a', 'num_1_b', 'num_2', 'num_3', 'char_a_1', 'char_a_2', 'char_b', 'char_c']
       );
     });
 

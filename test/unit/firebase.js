@@ -333,18 +333,19 @@ describe('MockFirebase', function () {
       expect(ref.child('b')).to.have.property('priority', 200);
     });
 
-    it('should have correct priority in snapshot if added with set', function () {
+    it('should remove .priority', function () {
       ref.on('child_added', spy);
       var previousCallCount = spy.callCount;
       ref.set({
         alphanew: {
           '.priority': 100,
-          '.value': 'a'
+          value: 'a'
         }
       });
       expect(spy.callCount).to.equal(previousCallCount + 1);
       var snapshot = spy.lastCall.args[0];
-      expect(snapshot.getPriority()).to.equal(100);
+      expect(snapshot.val()).to.eql({value: 'a'});
+      expect(snapshot.getPriority()).to.equal(null);
     });
 
     it('should fire child_added events with correct prevChildName', function () {
@@ -368,32 +369,6 @@ describe('MockFirebase', function () {
       [null, 'alpha', 'bravo'].forEach(function (previous, index) {
         expect(spy.getCall(index).args[1]).to.equal(previous);
       });
-    });
-
-    it('should fire child_added events with correct priority', function () {
-      var data = {
-        alpha: {
-          '.priority': 200,
-          foo: 'alpha'
-        },
-        bravo: {
-          '.priority': 300,
-          foo: 'bravo'
-        },
-        charlie: {
-          '.priority': 100,
-          foo: 'charlie'
-        }
-      };
-      ref = new Firebase('Empty://', null).autoFlush();
-      ref.set(data);
-      ref.on('child_added', spy);
-      expect(spy.callCount).to.equal(3);
-      for (var i = 0; i < 3; i++) {
-        var snapshot = spy.getCall(i).args[0];
-        expect(snapshot.getPriority())
-          .to.equal(data[snapshot.key]['.priority']);
-      }
     });
 
     it('should trigger child_removed if child keys are missing', function () {
@@ -463,6 +438,21 @@ describe('MockFirebase', function () {
       sinon.spy(ref, 'set');
       ref.setWithPriority(data, 250, callback);
       expect(ref.set).to.have.been.calledWith(data, callback);
+    });
+
+    it('should fire child_added events with correct priority', function () {
+      ref = new Firebase('Empty://', null).autoFlush();
+      ref.on('child_added', spy);
+      ref.child('alpha').setWithPriority({foo: 'alpha'}, 200);
+      ref.child('bravo').setWithPriority({foo: 'bravo'}, 300);
+      ref.child('charlie').setWithPriority({foo: 'charlie'}, 100);
+      expect(spy.callCount).to.equal(3);
+      expect(spy.getCall(0).args[0].key).to.equal('alpha');
+      expect(spy.getCall(0).args[0].getPriority()).to.equal(200);
+      expect(spy.getCall(1).args[0].key).to.equal('bravo');
+      expect(spy.getCall(1).args[0].getPriority()).to.equal(300);
+      expect(spy.getCall(2).args[0].key).to.equal('charlie');
+      expect(spy.getCall(2).args[0].getPriority()).to.equal(100);
     });
 
   });
