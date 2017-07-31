@@ -5,11 +5,11 @@ var Snapshot = require('./snapshot');
 var utils    = require('./utils');
 
 function Slice (queue, snap) {
-  var data = snap? snap.val() : queue.ref.getData();
-  this.ref = snap? snap.ref : queue.ref;
-  this.priority = snap? snap.getPriority() : this.ref.priority;
+  this.ref = snap ? snap.ref : queue.ref;
+  var data = snap ? snap.val() : this.ref.getData();
+  this.childPriorities = this.ref.getChildPriorities();
+  this.priority = snap ? snap.getPriority() : this.ref.priority;
   this.outerMap = {};
-  this.keys = [];
 
   var dataKeyValuePairs = this._buildKeyValuePairs(this.ref, data, queue._q);
   this.data = _.fromPairs(dataKeyValuePairs);
@@ -21,7 +21,7 @@ Slice.prototype.equals = function (slice) {
 };
 
 Slice.prototype.pos = function (key) {
-  return Object.keys(this.data).indexOf(this.key);
+  return this.sortedKeys.indexOf(this.key);
 };
 
 Slice.prototype.insertPos = function (prevChild) {
@@ -69,16 +69,32 @@ Slice.prototype.changeMap = function (slice) {
 
 Slice.prototype._buildKeyValuePairs = function(ref, rawData, q) {
   if (rawData === null) {
-    return {};
+    return [];
   }
 
   var numItems = Object.keys(rawData).length;
-  function sortFn(orderBy) {
-    return orderBy === 'key' ? function(keyVal) { return keyVal[0]; } : _.identity;
+  function sortFn(orderBy, childPriorities) {
+    function orderByKey(keyVal) {
+      return keyVal[0];
+    }
+    function orderByPriorityType(keyVal) {
+      return {
+        undefined: 0,
+        number: 1,
+        string: 2
+      }[typeof(childPriorities[keyVal[0]])];
+    }
+    function orderByPriorityValue(keyVal) {
+      var pri = childPriorities[keyVal[0]];
+      return pri !== undefined ? pri : Number.MIN_VALUE; // no priority comes first
+    }
+    if (orderBy === 'priority') return [orderByPriorityType, orderByPriorityValue, orderByKey];
+    return [orderByKey];
   }
-  function includeBetween(orderBy, start, end) {
+  function includeBetween(orderBy, start, end, childPriorities) {
     return function(keyVal) {
-      var sortVal = keyVal[0];
+      var sortVal = keyVal[0]; // default to orderByKey
+      if (orderBy === 'priority') sortVal = childPriorities[keyVal[0]];
       return (start === undefined || sortVal.localeCompare(start) !== -1) &&
         (end === undefined || sortVal.localeCompare(end) !== 1);
     };
@@ -86,8 +102,8 @@ Slice.prototype._buildKeyValuePairs = function(ref, rawData, q) {
 
   return _(rawData)
   .toPairs()
-  .sortBy(sortFn(q.orderBy))
-  .filter(includeBetween(q.orderBy, q.startValue, q.endValue))
+  .sortBy(sortFn(q.orderBy, this.childPriorities))
+  .filter(includeBetween(q.orderBy, q.startValue, q.endValue, this.childPriorities))
   .take(q.limitorder === 'first' ? q.limit : numItems)
   .takeRight(q.limitorder === 'last' ? q.limit : numItems)
   .value();
